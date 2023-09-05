@@ -7,30 +7,40 @@ services:
       - rinha-network
     depends_on:
       - db
-      - redis
+      - nats
     expose:
       - "80"
+    ulimits:
+      nproc: 1000000
+      nofile:
+        soft: 1000000
+        hard: 1000000
     deploy:
       resources:
         limits:
           cpus: '0.2'
-          memory: '0.4GB'
+          memory: '0.45GB'
 
   api2: # API - Instância 01
     image: rinha-bun
     hostname: api2
     depends_on:
       - db
-      - redis
+      - nats
     networks:
       - rinha-network
     expose:
       - "80"
+    ulimits:
+      nproc: 1000000
+      nofile:
+        soft: 1000000
+        hard: 1000000
     deploy:
       resources:
         limits:
           cpus: '0.2'
-          memory: '0.4GB'
+          memory: '0.45GB'
 
   nginx: # Load Balancer
     image: nginx:latest
@@ -47,32 +57,35 @@ services:
       resources:
         limits:
           cpus: '0.25'
-          memory: '0.3GB'
-  redis:
-    image: redis:latest
-    hostname: redis
+          memory: '0.2GB'
+  nats:
+    image: nats:2.9-alpine
+    hostname: nats
     ports:
-      - 6379:6379
+      - '4222:4222'
     networks:
       - rinha-network
     deploy:
       resources:
         limits:
           cpus: '0.1'
-          memory: '0.3GB'
+          memory: '0.1GB'
 
   db: # Banco de dados
-    image: mongo
+    image: postgres
     hostname: database
-    command: '--maxConns 999999'
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./postgresql.conf:/docker-entrypoint-initdb.d/postgresql.conf
+    command: postgres -c config_file=/docker-entrypoint-initdb.d/postgresql.conf
     networks:
       - rinha-network
     environment:
-      MONGO_INITDB_ROOT_USERNAME: rinha
-      MONGO_INITDB_ROOT_PASSWORD: rinha
-      MONGO_INITDB_DATABASE: rinhadb
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: 1234
+      POSTGRES_DB: rinhadb
     ports:
-      - 27017:27017
+      - 5432:5432
     deploy:
       resources:
         limits:

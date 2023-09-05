@@ -1,51 +1,64 @@
-import {Db, MongoClient} from 'mongodb';
+import { Pool } from 'pg'
+import sql from 'sqlstring';
 
-const client = new MongoClient('mongodb://database', {
-  auth: {
-    username: 'rinha',
-    password: 'rinha'
-  },
-  authSource: 'admin',
-  authMechanism: 'DEFAULT',
-  minPoolSize: 20,
-  maxPoolSize: 300,
+const pool = new Pool({
+  host: 'database',
+  user: 'root',
+  password: '1234',
+  database: 'rinhadb',
+  min: 50,
+  max: 250,
+  idleTimeoutMillis: 0,
+  connectionTimeoutMillis: 10000,
 });
-
-let db: Db;
 
 export type Person = {
   id: string;
-  apelido: string;
   nome: string;
+  apelido: string;
   nascimento: string;
-  stack?: string | undefined;
+  stack: string;
 }
 
-export const connectMongo = async () => {
-  await client.connect();
+export const addPerson = async(person: Person) => {
+  const client = await pool.connect();
 
-  db = client.db('rinha')
+  await client.query(`INSERT INTO people (id, nome, apelido, nascimento, stack) VALUES ($1, $2, $3, $4, $5)`, [person.id, person.nome, person.apelido, person.nascimento, person.stack])
 
-  await db.collection('people').createIndex({
-    apelido: 'text',
-    nome: 'text',
-    stack: 'text'
-  }, {
-    name: 'search_params_idx'
-  })
-
-  await db.collection('people').createIndex({ apelido: 1 }, {
-    name: 'apelido_idx',
-    unique: true,
-  });
+  client.release();
 }
 
-export const addPeople = async (people: Person[]) => db.collection('people').insertMany(people)
+export const getPerson = async (id: string) =>  {
+  const client = await pool.connect();
 
-export const getPerson = async (id: string) =>  db.collection('people').findOne({ id })
+  const result = await client.query(`SELECT * from people WHERE id = $1 LIMIT 1`, [id])
 
-export const getPeople = async (searchParam: string) =>  db.collection('people').find({ $text: { $diacriticSensitive: false, $caseSensitive: false, $search: searchParam }})
+  client.release();
 
-export const checkNickname = async (nickname: string) => db.collection('people').findOne({ apelido: nickname })
+  return result?.rows?.[0] ?? null;
+}
 
-export const getCount = async () => db.collection('people').countDocuments();
+export const getPeople = async (searchParam: string) =>  {
+  const client = await pool.connect();
+
+  const stmt = sql.format(`SELECT id, apelido, nome, nascimento, stack
+                           FROM people
+                           WHERE BUSCA_TRGM ILIKE '%'?'%'
+                           LIMIT 50`, [searchParam.toLowerCase()] )
+
+  const result = await client.query(stmt)
+
+  client.release();
+
+  return result.rows;
+}
+
+export const getCount = async () => {
+  const client = await pool.connect();
+
+  const result = await client.query(`SELECT count(1) from people`)
+
+  client.release();
+
+  return result.rows[0].count;
+}
