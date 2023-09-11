@@ -7,7 +7,6 @@
     "generic-pool": "^3.9.0",
     "hono": "^3.5.0",
     "ioredis": "^5.3.2",
-    "mongodb": "^5.8.1",
     "nats": "^2.16.0",
     "pg": "^8.11.3",
     "sqlstring": "^2.3.3",
