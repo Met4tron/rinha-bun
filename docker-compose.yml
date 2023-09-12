@@ -1,15 +1,15 @@
 version: '3.5'
 services:
   api1: # API - Instância 01
-    image: rinha-bun
-    hostname: api1
-    networks:
-      - rinha-network
+    # image: rinha-bun
+    build: .
+    environment:
+      HTTP_PORT: 3000
+      POOL_SIZE: 50
+    network_mode: host
     depends_on:
       - db
       - nats
-    expose:
-      - "80"
     ulimits:
       nproc: 1000000
       nofile:
@@ -22,15 +22,15 @@ services:
           memory: '0.45GB'
 
   api2: # API - Instância 01
-    image: rinha-bun
-    hostname: api2
+    # image: rinha-bun
+    build: .
+    environment:
+      HTTP_PORT: 3001
+      POOL_SIZE: 50
+    network_mode: host
     depends_on:
       - db
       - nats
-    networks:
-      - rinha-network
-    expose:
-      - "80"
     ulimits:
       nproc: 1000000
       nofile:
@@ -49,10 +49,7 @@ services:
     depends_on:
       - api1
       - api2
-    networks:
-      - rinha-network
-    ports:
-      - "9999:9999"
+    network_mode: host
     deploy:
       resources:
         limits:
@@ -60,11 +57,7 @@ services:
           memory: '0.2GB'
   nats:
     image: nats:2.9-alpine
-    hostname: nats
-    ports:
-      - '4222:4222'
-    networks:
-      - rinha-network
+    network_mode: host
     deploy:
       resources:
         limits:
@@ -78,20 +71,13 @@ services:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
       - ./postgresql.conf:/docker-entrypoint-initdb.d/postgresql.conf
     command: postgres -c config_file=/docker-entrypoint-initdb.d/postgresql.conf
-    networks:
-      - rinha-network
+    network_mode: host
     environment:
       POSTGRES_USER: root
       POSTGRES_PASSWORD: 1234
       POSTGRES_DB: rinhadb
-    ports:
-      - 5432:5432
     deploy:
       resources:
         limits:
           cpus: '0.75'
           memory: '1.6GB'
-
-networks:
-  rinha-network:
-    driver: bridge

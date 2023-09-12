@@ -6,40 +6,32 @@ import {
   connectNats,
   getApelidoFromCache,
   getRequestCache,
-  getTermFromCache,
-  publishMessage, setApelidoFromCache,
+  setApelidoFromCache,
   setRequestCache
 } from './nats';
 
-const app = new Hono()
-
-await connectNats()
+const app = new Hono();
+connectNats();
 
 app.get('/pessoas/:id', findPerson, async (c) => {
   const { id } = c.req.valid('param');
 
-  const personCache = getRequestCache(id)
+  let person = getRequestCache(id)
 
-  if (personCache) {
-    console.log('Cached - Get Person - Map');
-    return c.json(personCache, 200, {
-      'cache-control': 'public, max-age=604800, immutable'
-    })
+  if (!person) {
+    person = await getPerson(id)
+    if (person) {
+      person = { ...person, stack: person.stack.split(' ') }
+    }
   }
 
-  const personDb = await getPerson(id);
-
-  if (personDb) {
-    console.log('Cached - Get Person - Database');
-    return c.json({
-      ...personDb,
-      stack: personDb.stack.split(' ')
-    }, 200, {
+  if (person) {
+    return c.json(person, 200, {
       'cache-control': 'public, max-age=604800, immutable'
     })
+  } else {
+    return c.json({}, 404);
   }
-
-  return c.json({}, 404);
 })
 
 app.get('/pessoas', findPeople, async (c) => {
@@ -49,33 +41,21 @@ app.get('/pessoas', findPeople, async (c) => {
     return c.json({}, 400);
   }
 
-  const cacheSearch = await getTermFromCache(t.toLowerCase());
-
-  if (cacheSearch) {
-    return c.json(cacheSearch, 200, {
-      'cache-control': 'public, max-age=5, immutable'
-    })
-  }
-
   const people = await getPeople(t);
-
-  publishMessage('person.search', {
-    items: people,
-    term: t.toLowerCase(),
-  })
-
-  return c.json(people, 200, {
-    'cache-control': 'public, max-age=5, immutable'
-  })
+  if (people) {
+    return c.json(people, 200, {
+      'cache-control': 'public, max-age=604800, immutable'
+    })
+  } else {
+    return c.json({}, 404);
+  }
 })
 
 app.post('/pessoas', createPerson, async (c) => {
   const body = c.req.valid('json');
 
-  const hasPerson = getApelidoFromCache(body.apelido);
-
-  if (hasPerson) {
-    console.log('Cached - Create Person - Set');
+  if (getApelidoFromCache(body.apelido)) {
+    // console.log('Cached - Create Person - Set');
     return c.json({ message: 'Invalid user' }, 422);
   }
 
@@ -92,22 +72,23 @@ app.post('/pessoas', createPerson, async (c) => {
   setRequestCache(personId, newPerson);
   setApelidoFromCache(newPerson.apelido);
 
-  publishMessage('person.create', newPerson)
+  try {
+    await addPerson(newPerson);
 
-  await addPerson(newPerson);
-
-  return c.json({}, 201, {
-    'Location': `/pessoas/${personId}`
-  });
+    return c.json({}, 201, {
+      'Location': `/pessoas/${personId}`
+    });
+  } catch (e) {
+    return c.json({}, 400);
+  }
 })
 
 app.get('/contagem-pessoas', async (c) => {
   const count = await getCount();
-  console.log(count);
   return c.json({ count }, 200);
 })
 
 export default {
-  port: 80,
+  port: parseInt(process.env.HTTP_PORT || '8080'),
   fetch: app.fetch
 }

@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS public."people" (
     id VARCHAR(36) CONSTRAINT ID_PK PRIMARY KEY,
     apelido VARCHAR(32) unique,
     nome VARCHAR(100) not null,
-    nascimento CHAR(10) not null,
+    nascimento DATE not null,
     stack VARCHAR(1024),
     BUSCA_TRGM TEXT GENERATED ALWAYS AS (LOWER(nome || apelido || stack)) STORED
     );
