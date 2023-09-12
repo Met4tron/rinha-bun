@@ -10,9 +10,8 @@ import {
   setRequestCache
 } from './nats';
 
-const app = new Hono()
-
-await connectNats()
+const app = new Hono();
+connectNats();
 
 app.get('/pessoas/:id', findPerson, async (c) => {
   const { id } = c.req.valid('param');

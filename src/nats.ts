@@ -7,10 +7,6 @@ export const cache = {
   bySearchTerm: new Map(),
 }
 
-setInterval(() => cache.bySearchTerm.clear(), 5000)
-
-const jsonCodec = JSONCodec();
-
 let server: NatsConnection;
 
 export const connectNats = async () => {
@@ -36,9 +32,3 @@ export const getRequestCache = (id: string) => {
 export const setRequestCache = (id: string, value: Person) => {
   return cache.byPersonId.set(id, value)
 }
-
-export const getTermFromCache = (term: string) => {
-  return cache.bySearchTerm.get(term);
-}
-
-
