@@ -1,4 +1,4 @@
-import { connect, NatsConnection, JSONCodec, Subscription } from 'nats';
+import { connect, NatsConnection, JSONCodec } from 'nats';
 import {Person} from './db';
 
 export const cache = {
@@ -15,42 +15,10 @@ let server: NatsConnection;
 
 export const connectNats = async () => {
   server = await connect({
-    servers: 'nats'
+    servers: process.env.NATS_HOST || 'localhost'
   });
 
   console.log(`Connected to ${server.getServer()}`);
-
-  const subscriptions = [
-    server.subscribe('person.create'),
-    server.subscribe('person.search')
-  ]
-
-  for (const sub of subscriptions) {
-    subscribe(sub)
-  }
-}
-
-async function subscribe (s: Subscription) {
-  let subj = s.getSubject();
-  const c = (13 - subj.length);
-  const pad = "".padEnd(c);
-
-  for await (const m of s) {
-    const data = jsonCodec.decode(m.data) as any;
-
-    if (subj == 'person.create') {
-      setRequestCache(data.id, data)
-      setApelidoFromCache(data.apelido);
-    }
-
-    if (subj == 'person.search') {
-      cache.bySearchTerm.set(data.term, data.data);
-    }
-  }
-}
-
-export const publishMessage = (subject: string, payload: any)=> {
-  server.publish(subject, jsonCodec.encode(payload));
 }
 
 export const getApelidoFromCache = (apelido: string) => {
